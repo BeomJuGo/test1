@@ -1,39 +1,44 @@
 package com.health.controller;
 
-import java.text.DateFormat;
-import java.util.Date;
-import java.util.Locale;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.GetMapping;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
- * Handles requests for the application home page.
+ * Spring Boot Home Controller
  */
 @Controller
 public class HomeController {
-	
+
 	private static final Logger logger = LoggerFactory.getLogger(HomeController.class);
-	
+
 	/**
-	 * Simply selects the home view to render by returning its name.
+	 * 메인 페이지
 	 */
-	@RequestMapping(value = "/", method = RequestMethod.GET)
-	public String home(Locale locale, Model model) {
-		logger.info("Welcome home! The client locale is {}.", locale);
-		
-		Date date = new Date();
-		DateFormat dateFormat = DateFormat.getDateTimeInstance(DateFormat.LONG, DateFormat.LONG, locale);
-		
-		String formattedDate = dateFormat.format(date);
-		
-		model.addAttribute("serverTime", formattedDate );
-		
-		return "home";
+	@GetMapping("/")
+	public String home(Model model) {
+		logger.info("Welcome to HealthWeb!");
+
+		LocalDateTime now = LocalDateTime.now();
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH:mm:ss");
+		String formattedDate = now.format(formatter);
+
+		model.addAttribute("serverTime", formattedDate);
+		model.addAttribute("appName", "HealthWeb");
+
+		return "index";
 	}
-	
+
+	/**
+	 * 메인 대시보드
+	 */
+	@GetMapping("/main")
+	public String main() {
+		return "main";
+	}
 }

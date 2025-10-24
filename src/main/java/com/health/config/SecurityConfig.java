@@ -1,48 +1,60 @@
 package com.health.config;
 
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
- * 시큐리티 설정 (선택)
- * 인터셉터를 통한 로그인 체크, 권한 체크 등
+ * Spring Boot Security Configuration
  */
 @Configuration
-public class SecurityConfig implements WebMvcConfigurer {
-    
-    /**
-     * 인터셉터 등록
-     * 향후 로그인 체크, 권한 체크 등의 인터셉터를 추가할 수 있습니다.
-     */
-    @Override
-    public void addInterceptors(InterceptorRegistry registry) {
-        // 로그인 체크 인터셉터 예시
-        // registry.addInterceptor(new LoginCheckInterceptor())
-        //         .addPathPatterns("/user/**", "/trainer/**", "/matching/**", "/plan/**", "/certification/**")
-        //         .excludePathPatterns("/user/login", "/user/register", "/trainer/login", "/trainer/register", "/resources/**");
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
-    
-    /* 
-     * 참고: Spring Security를 사용할 경우 다음과 같이 설정할 수 있습니다.
-     * 
-     * @Bean
-     * public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-     *     http
-     *         .authorizeHttpRequests(auth -> auth
-     *             .requestMatchers("/user/login", "/user/register").permitAll()
-     *             .requestMatchers("/user/**").hasRole("USER")
-     *             .requestMatchers("/trainer/**").hasRole("TRAINER")
-     *             .anyRequest().authenticated()
-     *         )
-     *         .formLogin(form -> form
-     *             .loginPage("/user/login")
-     *             .defaultSuccessUrl("/user/dashboard")
-     *         )
-     *         .logout(logout -> logout
-     *             .logoutSuccessUrl("/")
-     *         );
-     *     return http.build();
-     * }
-     */
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+                .authorizeRequests()
+                .antMatchers("/", "/user/login", "/user/register", "/trainer/login", "/trainer/register",
+                        "/user/fix-all-passwords", "/user/reset-password/**", "/user/debug/**",
+                        "/resources/**", "/uploads/**", "/css/**", "/js/**", "/images/**")
+                .permitAll()
+                .antMatchers("/user/dashboard", "/user/profile", "/user/profile/**").hasRole("USER")
+                .antMatchers("/trainer/dashboard", "/trainer/profile", "/trainer/profile/**", "/trainer/client-list")
+                .hasRole("TRAINER")
+                .antMatchers("/plan/**", "/matching/**", "/certification/**").authenticated()
+                .anyRequest().permitAll()
+                .and()
+                .formLogin()
+                .loginPage("/user/login")
+                .defaultSuccessUrl("/user/dashboard")
+                .failureUrl("/user/login?error=true")
+                .permitAll()
+                .and()
+                .logout()
+                .logoutUrl("/logout")
+                .logoutSuccessUrl("/")
+                .invalidateHttpSession(true)
+                .deleteCookies("JSESSIONID")
+                .permitAll()
+                .and()
+                .csrf()
+                .disable() // 개발 단계에서는 CSRF 비활성화 (운영에서는 활성화 권장)
+                .headers()
+                .frameOptions()
+                .deny() // 보안을 위해 frame 옵션 거부
+                .and()
+                .sessionManagement()
+                .maximumSessions(1)
+                .maxSessionsPreventsLogin(false);
+    }
 }

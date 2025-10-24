@@ -1,0 +1,49 @@
+# Spring Boot Standard Configuration
+spring:
+  application:
+    name: health-web
+  
+  # MySQL 데이터베이스 설정
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/healthdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
+    username: root
+    password: 3784
+  
+  # JPA 설정
+  jpa:
+    hibernate:
+      ddl-auto: update  # create-drop에서 update로 변경 (데이터 보존)
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+  
+  # Thymeleaf 설정
+  thymeleaf:
+    cache: false
+    prefix: classpath:/templates/
+    suffix: .html
+    encoding: UTF-8
+    mode: HTML
+  
+  # File Upload Configuration
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+      enabled: true
+
+# 서버 설정
+server:
+  port: 8080
+
+# 로깅 설정
+logging:
+  level:
+    com.health: DEBUG
+    org.springframework: INFO
+    org.hibernate: DEBUG

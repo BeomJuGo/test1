@@ -1,59 +1,69 @@
 package com.health.service;
 
-import com.health.dao.MatchingDao;
+// import com.health.dao.MatchingDao; // Removed - using JPA Repository now
 import com.health.model.Matching;
+import com.health.model.MatchingStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
 @Transactional
 public class MatchingService {
-    
-    @Autowired
-    private MatchingDao matchingDao;
-    
+
+    // @Autowired
+    // private MatchingDao matchingDao; // Removed - using JPA Repository now
+
     public Matching createMatching(Matching matching) {
-        matching.setStatus("PENDING");
-        matchingDao.insertMatching(matching);
+        matching.setStatus(MatchingStatus.PENDING);
+        // TODO: Implement with JPA Repository
         return matching;
     }
-    
+
     public Matching getMatchingById(Long matchingId) {
-        return matchingDao.selectMatchingById(matchingId);
+        // TODO: Implement with JPA Repository
+        return null;
     }
-    
+
     public List<Matching> getMatchingsByUserId(Long userId) {
-        return matchingDao.selectMatchingsByUserId(userId);
+        // TODO: Implement with JPA Repository
+        return new ArrayList<>();
     }
-    
+
+    public void updateMatchingStatus(Long matchingId, String status) {
+        // TODO: Implement with JPA Repository
+    }
+
     public List<Matching> getMatchingsByTrainerId(Long trainerId) {
-        return matchingDao.selectMatchingsByTrainerId(trainerId);
+        // TODO: Implement with JPA Repository
+        return new ArrayList<>();
     }
-    
+
     public Matching getActiveMatchingByUserAndTrainer(Long userId, Long trainerId) {
-        return matchingDao.selectActiveMatchingByUserAndTrainer(userId, trainerId);
+        // TODO: Implement with JPA Repository
+        return null;
     }
-    
+
     public void acceptMatching(Long matchingId) {
-        matchingDao.updateMatchingStatus(matchingId, "ACCEPTED");
+        // TODO: Implement with JPA Repository
     }
-    
+
     public void rejectMatching(Long matchingId) {
-        matchingDao.updateMatchingStatus(matchingId, "REJECTED");
+        // TODO: Implement with JPA Repository
     }
-    
+
     public void completeMatching(Long matchingId) {
-        matchingDao.updateMatchingStatus(matchingId, "COMPLETED");
+        // TODO: Implement with JPA Repository
     }
-    
+
     public void updateMatching(Matching matching) {
-        matchingDao.updateMatching(matching);
+        // TODO: Implement with JPA Repository
     }
-    
+
     public void deleteMatching(Long matchingId) {
-        matchingDao.deleteMatching(matchingId);
+        // TODO: Implement with JPA Repository
     }
 }

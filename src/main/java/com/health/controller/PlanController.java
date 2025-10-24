@@ -1,9 +1,13 @@
 package com.health.controller;
 
+import com.health.exception.BusinessException;
+import com.health.exception.DatabaseException;
 import com.health.model.DietPlan;
 import com.health.model.ExercisePlan;
 import com.health.model.User;
 import com.health.service.PlanService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -20,9 +24,11 @@ import java.util.Map;
 /**
  * Plan Controller - 운동 및 식단 계획 요청 처리
  */
-@Controller
-@RequestMapping("/plan")
+// @Controller
+// @RequestMapping("/plan")
 public class PlanController {
+
+    private static final Logger logger = LoggerFactory.getLogger(PlanController.class);
 
     @Autowired
     private PlanService planService;
@@ -36,30 +42,45 @@ public class PlanController {
     public ResponseEntity<Map<String, Object>> getDailyPlan(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             HttpSession session) {
-        
+
         Map<String, Object> response = new HashMap<>();
-        User loginUser = (User) session.getAttribute("loginUser");
-        
-        if (loginUser == null) {
+        User user = (User) session.getAttribute("user");
+
+        if (user == null) {
             response.put("success", false);
             response.put("message", "로그인이 필요합니다.");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
         }
-        
+
         try {
-            // TODO: 실제로는 매칭 ID를 통해 조회해야 함
-            // 현재는 하드코딩된 matchingId 사용 (테스트용)
-            Long matchingId = 1L; // 세션에서 현재 매칭 ID를 가져와야 함
-            
-            Map<String, Object> dailyPlans = planService.getDailyPlans(matchingId, date);
-            
+            // 세션에서 현재 매칭 ID 가져오기
+            Long matchingId = (Long) session.getAttribute("currentMatchingId");
+            if (matchingId == null) {
+                response.put("success", false);
+                response.put("message", "활성화된 매칭이 없습니다.");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+
+            List<ExercisePlan> dailyPlans = planService.getDailyPlans(matchingId, date);
+
             response.put("success", true);
             response.put("data", dailyPlans);
             return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
+
+        } catch (BusinessException e) {
+            logger.error("비즈니스 로직 오류: {}", e.getMessage());
             response.put("success", false);
-            response.put("message", "오류가 발생했습니다: " + e.getMessage());
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        } catch (DatabaseException e) {
+            logger.error("데이터베이스 오류: {}", e.getMessage());
+            response.put("success", false);
+            response.put("message", "데이터베이스 처리 중 오류가 발생했습니다.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        } catch (Exception e) {
+            logger.error("예상치 못한 오류: {}", e.getMessage(), e);
+            response.put("success", false);
+            response.put("message", "서버 내부 오류가 발생했습니다.");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
@@ -73,32 +94,48 @@ public class PlanController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             HttpSession session) {
-        
+
         Map<String, Object> response = new HashMap<>();
-        User loginUser = (User) session.getAttribute("loginUser");
-        
-        if (loginUser == null) {
+        User user = (User) session.getAttribute("user");
+
+        if (user == null) {
             response.put("success", false);
             response.put("message", "로그인이 필요합니다.");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
         }
-        
+
         try {
-            // TODO: 실제 매칭 ID 사용
-            Long matchingId = 1L;
-            
-            Map<String, Object> plans = planService.getPlansForCalendar(matchingId, startDate, endDate);
-            
+            // 세션에서 현재 매칭 ID 가져오기
+            Long matchingId = (Long) session.getAttribute("currentMatchingId");
+            if (matchingId == null) {
+                response.put("success", false);
+                response.put("message", "활성화된 매칭이 없습니다.");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+
+            List<ExercisePlan> plans = planService.getPlansForCalendar(matchingId, startDate, endDate);
+
             // FullCalendar 형식으로 변환
             List<Map<String, Object>> calendarEvents = convertToCalendarEvents(plans);
-            
+
             response.put("success", true);
             response.put("events", calendarEvents);
             return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
+
+        } catch (BusinessException e) {
+            logger.error("비즈니스 로직 오류: {}", e.getMessage());
             response.put("success", false);
-            response.put("message", "오류가 발생했습니다: " + e.getMessage());
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        } catch (DatabaseException e) {
+            logger.error("데이터베이스 오류: {}", e.getMessage());
+            response.put("success", false);
+            response.put("message", "데이터베이스 처리 중 오류가 발생했습니다.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        } catch (Exception e) {
+            logger.error("예상치 못한 오류: {}", e.getMessage(), e);
+            response.put("success", false);
+            response.put("message", "서버 내부 오류가 발생했습니다.");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
@@ -111,19 +148,31 @@ public class PlanController {
     public ResponseEntity<Map<String, Object>> createExercisePlan(
             @RequestBody ExercisePlan plan,
             HttpSession session) {
-        
+
         Map<String, Object> response = new HashMap<>();
-        
+
         try {
-            Long planId = planService.createExercisePlan(plan);
+            ExercisePlan createdPlan = planService.createExercisePlan(plan);
+            Long planId = createdPlan.getPlanId();
             response.put("success", true);
             response.put("message", "운동 계획이 생성되었습니다.");
             response.put("planId", planId);
             return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
+
+        } catch (BusinessException e) {
+            logger.error("비즈니스 로직 오류: {}", e.getMessage());
             response.put("success", false);
-            response.put("message", "오류가 발생했습니다: " + e.getMessage());
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        } catch (DatabaseException e) {
+            logger.error("데이터베이스 오류: {}", e.getMessage());
+            response.put("success", false);
+            response.put("message", "데이터베이스 처리 중 오류가 발생했습니다.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        } catch (Exception e) {
+            logger.error("예상치 못한 오류: {}", e.getMessage(), e);
+            response.put("success", false);
+            response.put("message", "서버 내부 오류가 발생했습니다.");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
@@ -136,19 +185,31 @@ public class PlanController {
     public ResponseEntity<Map<String, Object>> createDietPlan(
             @RequestBody DietPlan plan,
             HttpSession session) {
-        
+
         Map<String, Object> response = new HashMap<>();
-        
+
         try {
-            Long dietId = planService.createDietPlan(plan);
+            DietPlan createdPlan = planService.createDietPlan(plan);
+            Long dietId = createdPlan.getDietId();
             response.put("success", true);
             response.put("message", "식단 계획이 생성되었습니다.");
             response.put("dietId", dietId);
             return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
+
+        } catch (BusinessException e) {
+            logger.error("비즈니스 로직 오류: {}", e.getMessage());
             response.put("success", false);
-            response.put("message", "오류가 발생했습니다: " + e.getMessage());
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        } catch (DatabaseException e) {
+            logger.error("데이터베이스 오류: {}", e.getMessage());
+            response.put("success", false);
+            response.put("message", "데이터베이스 처리 중 오류가 발생했습니다.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        } catch (Exception e) {
+            logger.error("예상치 못한 오류: {}", e.getMessage(), e);
+            response.put("success", false);
+            response.put("message", "서버 내부 오류가 발생했습니다.");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
@@ -161,18 +222,30 @@ public class PlanController {
     public ResponseEntity<Map<String, Object>> deleteExercisePlan(
             @PathVariable Long planId,
             HttpSession session) {
-        
+
         Map<String, Object> response = new HashMap<>();
-        
+
         try {
-            boolean deleted = planService.deleteExercisePlan(planId);
+            planService.deleteExercisePlan(planId);
+            boolean deleted = true; // 성공적으로 실행되면 true
             response.put("success", deleted);
             response.put("message", deleted ? "삭제되었습니다." : "삭제 실패");
             return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
+
+        } catch (BusinessException e) {
+            logger.error("비즈니스 로직 오류: {}", e.getMessage());
             response.put("success", false);
-            response.put("message", "오류가 발생했습니다: " + e.getMessage());
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        } catch (DatabaseException e) {
+            logger.error("데이터베이스 오류: {}", e.getMessage());
+            response.put("success", false);
+            response.put("message", "데이터베이스 처리 중 오류가 발생했습니다.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        } catch (Exception e) {
+            logger.error("예상치 못한 오류: {}", e.getMessage(), e);
+            response.put("success", false);
+            response.put("message", "서버 내부 오류가 발생했습니다.");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
@@ -185,18 +258,30 @@ public class PlanController {
     public ResponseEntity<Map<String, Object>> deleteDietPlan(
             @PathVariable Long dietId,
             HttpSession session) {
-        
+
         Map<String, Object> response = new HashMap<>();
-        
+
         try {
-            boolean deleted = planService.deleteDietPlan(dietId);
+            planService.deleteDietPlan(dietId);
+            boolean deleted = true; // 성공적으로 실행되면 true
             response.put("success", deleted);
             response.put("message", deleted ? "삭제되었습니다." : "삭제 실패");
             return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
+
+        } catch (BusinessException e) {
+            logger.error("비즈니스 로직 오류: {}", e.getMessage());
             response.put("success", false);
-            response.put("message", "오류가 발생했습니다: " + e.getMessage());
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        } catch (DatabaseException e) {
+            logger.error("데이터베이스 오류: {}", e.getMessage());
+            response.put("success", false);
+            response.put("message", "데이터베이스 처리 중 오류가 발생했습니다.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        } catch (Exception e) {
+            logger.error("예상치 못한 오류: {}", e.getMessage(), e);
+            response.put("success", false);
+            response.put("message", "서버 내부 오류가 발생했습니다.");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
@@ -204,55 +289,31 @@ public class PlanController {
     /**
      * 계획 데이터를 FullCalendar 이벤트 형식으로 변환
      */
-    private List<Map<String, Object>> convertToCalendarEvents(Map<String, Object> plans) {
+    private List<Map<String, Object>> convertToCalendarEvents(List<ExercisePlan> plans) {
         List<Map<String, Object>> events = new java.util.ArrayList<>();
-        
+
         // 운동 계획 변환
-        @SuppressWarnings("unchecked")
-        List<ExercisePlan> exercisePlans = (List<ExercisePlan>) plans.get("exercisePlans");
-        if (exercisePlans != null) {
-            for (ExercisePlan plan : exercisePlans) {
+        if (plans != null) {
+            for (ExercisePlan plan : plans) {
                 Map<String, Object> event = new HashMap<>();
                 event.put("id", "exercise-" + plan.getPlanId());
                 event.put("title", "🏃 " + plan.getExerciseName());
                 event.put("start", plan.getPlanDate().toString());
                 event.put("color", "#10b981");
                 event.put("extendedProps", Map.of(
-                    "type", "exercise",
-                    "planId", plan.getPlanId(),
-                    "sets", plan.getSets(),
-                    "reps", plan.getReps(),
-                    "duration", plan.getDuration(),
-                    "calories", plan.getCalories()
-                ));
+                        "type", "exercise",
+                        "planId", plan.getPlanId(),
+                        "sets", plan.getSets(),
+                        "reps", plan.getReps(),
+                        "duration", plan.getDuration(),
+                        "calories", plan.getCalories()));
                 events.add(event);
             }
         }
-        
-        // 식단 계획 변환
-        @SuppressWarnings("unchecked")
-        List<DietPlan> dietPlans = (List<DietPlan>) plans.get("dietPlans");
-        if (dietPlans != null) {
-            for (DietPlan plan : dietPlans) {
-                Map<String, Object> event = new HashMap<>();
-                event.put("id", "diet-" + plan.getDietId());
-                event.put("title", getMealEmoji(plan.getMealType()) + " " + plan.getMealName());
-                event.put("start", plan.getPlanDate().toString());
-                event.put("color", "#3b82f6");
-                event.put("allDay", true);
-                event.put("extendedProps", Map.of(
-                    "type", "diet",
-                    "dietId", plan.getDietId(),
-                    "mealType", plan.getMealType(),
-                    "calories", plan.getCalories(),
-                    "protein", plan.getProtein(),
-                    "carbs", plan.getCarbs(),
-                    "fat", plan.getFat()
-                ));
-                events.add(event);
-            }
-        }
-        
+
+        // TODO: 식단 계획 변환은 별도 메서드로 분리 필요
+        // 현재는 운동 계획만 처리
+
         return events;
     }
 
@@ -261,11 +322,16 @@ public class PlanController {
      */
     private String getMealEmoji(String mealType) {
         switch (mealType) {
-            case "BREAKFAST": return "🍳";
-            case "LUNCH": return "🍱";
-            case "DINNER": return "🍽️";
-            case "SNACK": return "🍪";
-            default: return "🥗";
+            case "BREAKFAST":
+                return "🍳";
+            case "LUNCH":
+                return "🍱";
+            case "DINNER":
+                return "🍽️";
+            case "SNACK":
+                return "🍪";
+            default:
+                return "🥗";
         }
     }
 }

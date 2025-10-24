@@ -1,0 +1,36 @@
+# 간단한 Spring Boot 설정 (컴파일 오류 해결용)
+spring:
+  application:
+    name: health-web
+  
+  # 기본 데이터베이스 설정 (H2 인메모리)
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:testdb
+    username: sa
+    password: 
+  
+  # H2 콘솔 활성화
+  h2:
+    console:
+      enabled: true
+  
+  # JPA 설정
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+  
+  # Thymeleaf 설정
+  thymeleaf:
+    cache: false
+
+# 서버 설정
+server:
+  port: 8080
+
+# 로깅 설정
+logging:
+  level:
+    com.health: DEBUG
+    org.springframework: INFO
